@@ -4,22 +4,22 @@ from setuptools.command.test import test as TestCommand
 import os
 import sys
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'test_settings')
-
 PACKAGES = [
     'web_payments_paypal']
 
 REQUIREMENTS = [
-    'web-payments-connector<2.0.0']
+    'web-payments-connector>=2.1.0b2<3.0a1',
+    'requests>=2.16.0',
+    'simplejson'
+]
 
 TEST_REQUIREMENTS = [
-    'pytest',
-    'pytest-django'
+    'pytest'
 ]
 
 VERSIONING = {
     'root': '.',
-    'version_scheme': 'post-release',
+    'version_scheme': 'guess-next-dev',
     'local_scheme': 'dirty-tag',
 }
 

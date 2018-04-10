@@ -1,8 +1,7 @@
-import json
+import simplejson as json
 from decimal import Decimal
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
-from django.utils import timezone
 from requests import HTTPError
 
 from . import PaypalProvider, PaypalCardProvider
@@ -51,7 +50,7 @@ class TestPaypalProvider(TestCase):
             post.json = data
             post.status_code = 200
             mocked_post.return_value = post
-            with self.assertRaises(RedirectNeeded) as exc:
+            with self.assertRaises(RedirectNeeded) as cm:
                 self.provider.get_form(payment=self.payment)
         self.assertEqual(self.payment.status, PaymentStatus.WAITING)
         self.assertEqual(self.payment.captured_amount, Decimal('0'))
@@ -96,9 +95,8 @@ class TestPaypalProvider(TestCase):
         self.assertEqual(self.payment.status, PaymentStatus.REFUNDED)
 
     @patch('requests.post')
-    @patch('web_payments_paypal.redirect')
     def test_provider_redirects_on_success_captured_payment(
-            self, mocked_redirect, mocked_post):
+            self, mocked_post):
         data = MagicMock()
         data.return_value = {
             'token_type': 'test_token_type',
@@ -116,15 +114,15 @@ class TestPaypalProvider(TestCase):
 
         request = MagicMock()
         request.GET = {'token': 'test', 'PayerID': '1234'}
-        self.provider.process_data(self.payment, request)
+        with self.assertRaises(RedirectNeeded) as cm:
+            self.provider.process_data(self.payment, request)
 
         self.assertEqual(self.payment.status, PaymentStatus.CONFIRMED)
         self.assertEqual(self.payment.captured_amount, self.payment.total)
 
     @patch('requests.post')
-    @patch('web_payments_paypal.redirect')
     def test_provider_redirects_on_success_preauth_payment(
-            self, mocked_redirect, mocked_post):
+            self, mocked_post):
         data = MagicMock()
         data.return_value = {
             'token_type': 'test_token_type',
@@ -144,19 +142,21 @@ class TestPaypalProvider(TestCase):
         request.GET = {'token': 'test', 'PayerID': '1234'}
         provider = PaypalProvider(
             secret=SECRET, client_id=CLIENT_ID, capture=False)
-        provider.process_data(self.payment, request)
+        with self.assertRaises(RedirectNeeded) as cm:
+            provider.process_data(self.payment, request)
 
         self.assertEqual(self.payment.status, PaymentStatus.PREAUTH)
         self.assertEqual(self.payment.captured_amount, Decimal('0'))
 
-    @patch('web_payments_paypal.redirect')
     def test_provider_request_without_payerid_redirects_on_failure(
-            self, mocked_redirect):
+            self):
         request = MagicMock()
         request.GET = {'token': 'test', 'PayerID': None}
-        self.provider.process_data(self.payment, request)
+        with self.assertRaises(RedirectNeeded) as cm:
+            self.provider.process_data(self.payment, request)
         self.assertEqual(self.payment.status, PaymentStatus.REJECTED)
 
+    """ always renew oauth token
     @patch('requests.post')
     def test_provider_renews_access_token(self, mocked_post):
         new_token = 'new_test_token'
@@ -170,7 +170,6 @@ class TestPaypalProvider(TestCase):
         mocked_post.side_effect = [
             HTTPError(response=response401), response, response]
 
-        self.payment.created = timezone.now()
         self.payment.extra_data = json.dumps({
             'auth_response': {
                 'access_token': 'expired_token',
@@ -178,7 +177,7 @@ class TestPaypalProvider(TestCase):
                 'expires_in': 99999}})
         self.provider.create_payment(self.payment)
         payment_response = json.loads(self.payment.extra_data)['auth_response']
-        self.assertEqual(payment_response['access_token'], new_token)
+        self.assertEqual(payment_response['access_token'], new_token)"""
 
 
 class TestPaypalCardProvider(TestCase):
@@ -209,7 +208,7 @@ class TestPaypalCardProvider(TestCase):
                 self.provider.get_form(
                     payment=self.payment, data=PROCESS_DATA)
                 self.assertEqual(exc.args[0], self.payment.get_success_url())
-        links = self.provider._get_links(self.payment)
+        links = self.payment.attrs.links
         self.assertEqual(self.payment.status, PaymentStatus.CONFIRMED)
         self.assertEqual(self.payment.captured_amount, self.payment.total)
         self.assertEqual(self.payment.transaction_id, transaction_id)
@@ -240,14 +239,14 @@ class TestPaypalCardProvider(TestCase):
                 provider.get_form(
                     payment=self.payment, data=PROCESS_DATA)
                 self.assertEqual(exc.args[0], self.payment.get_success_url())
-        links = provider._get_links(self.payment)
+        links = self.payment.attrs.links
         self.assertEqual(self.payment.status, PaymentStatus.PREAUTH)
         self.assertEqual(self.payment.captured_amount, Decimal('0'))
         self.assertEqual(self.payment.transaction_id, transaction_id)
         self.assertTrue('capture' in links)
         self.assertTrue('refund' in links)
 
-    def test_form_shows_validation_error_message(self):
+    def test_form_error_message(self):
         with patch('requests.post') as mocked_post:
             error_message = 'error message'
             data = MagicMock()
@@ -256,12 +255,14 @@ class TestPaypalCardProvider(TestCase):
             post.json = data
             post.status_code = 400
             mocked_post.side_effect = HTTPError(response=post)
-            form = self.provider.get_form(
-                payment=self.payment, data=PROCESS_DATA)
+            with self.assertRaises(PaymentError) as exc:
+                form = self.provider.get_form(
+                    payment=self.payment, data=PROCESS_DATA)
+
         self.assertEqual(self.payment.status, PaymentStatus.ERROR)
         self.assertEqual(form.errors['__all__'][0], error_message)
 
-    def test_form_shows_internal_error_message(self):
+    def test_form_internal_error_message(self):
         with patch('requests.post') as mocked_post:
             error_message = 'error message'
             data = MagicMock()
