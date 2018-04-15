@@ -8,7 +8,7 @@ PACKAGES = [
     'web_payments_paypal']
 
 REQUIREMENTS = [
-    'web-payments-connector>=2.1.0b2<3.0a1',
+    'web-payments-connector>=2.2.0<3.0a1',
     'requests>=2.16.0',
     'simplejson'
 ]

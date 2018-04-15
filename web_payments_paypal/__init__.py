@@ -21,6 +21,22 @@ CENTS = Decimal('0.01')
 class UnauthorizedRequest(Exception):
     pass
 
+def authorize(fun):
+    @wraps(fun)
+    def wrapper(self, *args, **kwargs):
+        try:
+            response = fun(self, *args, **kwargs)
+        except HTTPError as e:
+            if e.response.status_code == 401:
+                self.clear_token_cache()
+                response = fun(self, *args, **kwargs)
+            else:
+                raise
+        return response
+
+    return wrapper
+
+
 class PaypalProvider(BasicProvider):
     '''
     paypal.com payment provider
@@ -50,10 +66,11 @@ class PaypalProvider(BasicProvider):
         links = related_resources[resource_key]['links']
         payment.attrs.links = dict((link['rel'], link) for link in links)
 
+    @authorize
     def post(self, payment, *args, **kwargs):
         kwargs['headers'] = {
             'Content-Type': 'application/json',
-            'Authorization': self.get_access_token()}
+            'Authorization': self.token}
         if 'data' in kwargs:
             kwargs['data'] = json.dumps(kwargs['data'])
         response = requests.post(*args, **kwargs)
@@ -80,7 +97,7 @@ class PaypalProvider(BasicProvider):
             self.set_response_data(payment, data)
         return data
 
-    def get_access_token(self):
+    def get_auth_token(self, now):
         headers = {'Accept': 'application/json',
                    'Accept-Language': 'en_US'}
         post = {'grant_type': 'client_credentials'}
@@ -89,7 +106,10 @@ class PaypalProvider(BasicProvider):
                                  auth=(self.client_id, self.secret))
         response.raise_for_status()
         data = response.json()
-        return '%s %s' % (data['token_type'], data['access_token'])
+
+        if 'expires_in' in data:
+            now += timedelta(seconds=data['expires_in'])
+        return '%s %s' % (data['token_type'], data['access_token']), now
 
     def get_transactions_items(self, payment):
         for purchased_item in payment.get_purchased_items():
@@ -126,10 +146,9 @@ class PaypalProvider(BasicProvider):
         return data
 
     def get_product_data(self, payment, extra_data=None):
-        return_url = payment.get_process_url(payment)
         data = self.get_transactions_data(payment)
-        data['redirect_urls'] = {'return_url': return_url,
-                                 'cancel_url': return_url}
+        data['redirect_urls'] = {'return_url': payment.get_process_url(payment),
+                                 'cancel_url': payment.get_process_url(payment)}
         data['payer'] = {'payment_method': 'paypal'}
         return data
 
@@ -139,10 +158,9 @@ class PaypalProvider(BasicProvider):
         links = getattr(payment.attrs, "links", {})
         redirect_to = links.get('approval_url', None)
         if not redirect_to:
-            payment_data = self.create_payment(payment)
+            payment_data = self.post(payment, self.payments_url, data=self.get_product_data(payment))
             payment.transaction_id = payment_data['id']
-            links = getattr(payment.attrs, "links", {})
-            redirect_to = links['approval_url']
+            redirect_to = getattr(payment.attrs, "links", {})['approval_url']
         payment.change_status(PaymentStatus.WAITING)
         raise RedirectNeeded(redirect_to['href'])
 
@@ -166,11 +184,6 @@ class PaypalProvider(BasicProvider):
         else:
             payment.change_status(PaymentStatus.PREAUTH)
         raise RedirectNeeded(success_url)
-
-    def create_payment(self, payment, extra_data=None):
-        product_data = self.get_product_data(payment, extra_data)
-        payment = self.post(payment, self.payments_url, data=product_data)
-        return payment
 
     def execute_payment(self, payment, payer_id):
         post = {'payer_id': payer_id}
@@ -247,9 +260,9 @@ class PaypalCardProvider(PaypalProvider):
             card_type = get_credit_card_issuer(cleaned_data['number'])[0]
             request_data = {'type': card_type}
             request_data.update(cleaned_data)
+            product_data = self.get_product_data(payment, cleaned_data)
             try:
-                data = self.create_payment(
-                        payment, cleaned_data)
+                data = self.post(payment, self.payments_url, data=product_data)
             except HTTPError as e:
                 response = e.response
                 if response.status_code == 400:
