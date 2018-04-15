@@ -258,8 +258,6 @@ class PaypalCardProvider(PaypalProvider):
         if form.validate():
             cleaned_data = form.data
             card_type = get_credit_card_issuer(cleaned_data['number'])[0]
-            request_data = {'type': card_type}
-            request_data.update(cleaned_data)
             product_data = self.get_product_data(payment, cleaned_data)
             try:
                 data = self.post(payment, self.payments_url, data=product_data)

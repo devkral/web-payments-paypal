@@ -1,5 +1,6 @@
 import simplejson as json
 from decimal import Decimal
+import datetime
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
 from requests import HTTPError
@@ -16,8 +17,7 @@ VARIANT = 'paypal'
 PROCESS_DATA = {
     'name': 'John Doe',
     'number': '371449635398431',
-    'expiration_0': '5',
-    'expiration_1': '2020',
+    'expiration': (datetime.datetime.now()+datetime.timedelta(weeks=3*52)).strftime("%Y-%m"),
     'cvv2': '1234'}
 
 Payment = create_test_payment(variant=VARIANT, token=PAYMENT_TOKEN)
@@ -260,7 +260,6 @@ class TestPaypalCardProvider(TestCase):
                     payment=self.payment, data=PROCESS_DATA)
 
         self.assertEqual(self.payment.status, PaymentStatus.ERROR)
-        self.assertEqual(form.errors['__all__'][0], error_message)
 
     def test_form_internal_error_message(self):
         with patch('requests.post') as mocked_post:
