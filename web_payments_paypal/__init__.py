@@ -4,8 +4,6 @@ from functools import wraps
 import simplejson as json
 import logging
 
-from django.http import HttpResponseForbidden
-from django.shortcuts import redirect
 import requests
 from requests.exceptions import HTTPError
 
