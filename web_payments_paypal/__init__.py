@@ -278,18 +278,15 @@ class PaypalCardProvider(PaypalProvider):
             raise RedirectNeeded(payment.get_success_url())
         return form
 
-    def get_product_data(self, payment, extra_data=None):
-        extra_data = extra_data or {}
+    def get_product_data(self, payment, extra_data):
         data = self.get_transactions_data(payment)
-        year = extra_data['expiration'].year
-        month = extra_data['expiration'].month
         number = extra_data['number']
         card_type, _card_issuer = get_credit_card_issuer(number)
         credit_card = {'number': number,
                        'type': card_type,
-                       'expire_month': month,
-                       'expire_year': year}
-        if 'cvv2' in extra_data and extra_data['cvv2']:
+                       'expire_month': extra_data['expiration'].month,
+                       'expire_year': extra_data['expiration'].year}
+        if extra_data.get('cvv2', None):
             credit_card['cvv2'] = extra_data['cvv2']
         data['payer'] = {'payment_method': 'credit_card',
                          'funding_instruments': [{'credit_card': credit_card}]}
