@@ -1,19 +1,36 @@
-web-payments-paydirekt
-======================
+web-payments-paypal
+===================
 
-Usage:
+Status
+------
+PaypalProvider works
+PaypalCardProvider may make issues, test first (I have no credit card)
 
-add to PAYMENT_VARIANTS_API:
+Usage
+-----
+
+add ProviderVariant to PAYMENT_VARIANTS_API or to list_providers:
 
 ``` python
-PAYMENT_VARIANTS_API = {
-    ...
-    'paydirekt': ('web_payments_paydirekt.PaydirektProvider', {
-        "client_id": "<clientid>",
-        "secret": "<secret>",
-        "endpoint": 'https://api.sandbox.paypal.com'
-        "capture": True
-      }
-    )
-  }
+
+# normal
+ProviderVariant('web_payments_paypal.PaypalProvider', {
+    "client_id": "<clientid>",
+    "secret": "<secret>",
+    "endpoint": 'https://api.sandbox.paypal.com'
+    "capture": True
+  },
+  {}
+)
+
+# with credit card
+ProviderVariant('web_payments_paypal.PaypalCardProvider', {
+    "client_id": "<clientid>",
+    "secret": "<secret>",
+    "endpoint": 'https://api.sandbox.paypal.com'
+    "capture": True
+  },
+  {}
+)
+
 ```
