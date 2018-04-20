@@ -265,8 +265,7 @@ class PaypalCardProvider(PaypalProvider):
                         error['issue'] for error in error_data['details']]
                 else:
                     errors = ['Internal PayPal error']
-                logging.error("Error: %s", errors)
-                payment.change_status(PaymentStatus.ERROR)
+                payment.change_status(PaymentStatus.ERROR, errors)
                 raise PaymentError("Paypal Error")
             else:
                 payment.transaction_id = data['id']

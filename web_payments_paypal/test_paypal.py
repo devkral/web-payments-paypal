@@ -156,16 +156,16 @@ class TestPaypalProvider(TestCase):
             self.provider.process_data(self.payment, request)
         self.assertEqual(self.payment.status, PaymentStatus.REJECTED)
 
-    """ always renew oauth token
     @patch('requests.post')
     def test_provider_renews_access_token(self, mocked_post):
         new_token = 'new_test_token'
         response401 = MagicMock()
         response401.status_code = 401
         data = MagicMock()
-        data.return_value = {'access_token': new_token, 'token_type': 'type'}
+        data.return_value = {'access_token': new_token, 'token_type': 'test_token_type'}
         response = MagicMock()
         response.json = data
+        response.response_type = "application/json"
         response.status_code = 200
         mocked_post.side_effect = [
             HTTPError(response=response401), response, response]
@@ -175,9 +175,8 @@ class TestPaypalProvider(TestCase):
                 'access_token': 'expired_token',
                 'token_type': 'token type',
                 'expires_in': 99999}})
-        self.provider.create_payment(self.payment)
-        payment_response = json.loads(self.payment.extra_data)['auth_response']
-        self.assertEqual(payment_response['access_token'], new_token)"""
+        self.provider.post(self.payment, self.provider.payments_url, data=self.provider.get_product_data(self.payment))
+        self.assertEqual(self.provider.token_cache.token, "test_token_type %s" % new_token)
 
 
 class TestPaypalCardProvider(TestCase):
