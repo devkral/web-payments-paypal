@@ -142,7 +142,7 @@ class PaypalProvider(BasicProvider):
                     'tax': str(tax),
                     'shipping': str(delivery)}},
                 'item_list': {'items': items},
-                'description': payment.description}]}
+                'description': pextras.get("message", "")}]}
         return data
 
     def get_product_data(self, payment, extra_data=None):
