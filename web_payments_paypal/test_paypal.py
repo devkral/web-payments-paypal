@@ -17,7 +17,7 @@ VARIANT = 'paypal'
 PROCESS_DATA = {
     'name': 'John Doe',
     'number': '371449635398431',
-    'expiration': (datetime.datetime.now()+datetime.timedelta(weeks=3*52)).strftime("%Y-%m"),
+    'expiration': (datetime.datetime.now()+datetime.timedelta(weeks=3*52)).strftime("%m/%Y"),
     'cvv2': '1234'}
 
 Payment = create_test_payment(variant=VARIANT, token=PAYMENT_TOKEN)

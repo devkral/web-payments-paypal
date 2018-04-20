@@ -17,10 +17,6 @@ logger = logging.getLogger(__name__)
 
 CENTS = Decimal('0.01')
 
-
-class UnauthorizedRequest(Exception):
-    pass
-
 def authorize(fun):
     @wraps(fun)
     def wrapper(self, *args, **kwargs):
@@ -255,7 +251,7 @@ class PaypalCardProvider(PaypalProvider):
         if payment.status == PaymentStatus.WAITING:
             payment.change_status(PaymentStatus.INPUT)
         form = PaymentForm(formdata=data, provider=self, payment=payment)
-        if form.validate():
+        if data and form.validate():
             cleaned_data = form.data
             card_type = get_credit_card_issuer(cleaned_data['number'])[0]
             product_data = self.get_product_data(payment, cleaned_data)
