@@ -5,7 +5,7 @@ from unittest import TestCase
 from unittest.mock import patch, MagicMock
 from requests import HTTPError
 
-from . import PaypalProvider, PaypalCardProvider
+from web_payments_paypal import PaypalProvider, PaypalCardProvider
 from web_payments import RedirectNeeded, PaymentError, PaymentStatus
 from web_payments.testcommon import create_test_payment
 
